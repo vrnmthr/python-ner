@@ -5,9 +5,11 @@ the test and train data in CONLL 2003 format in separate directories.
 
 """
 import os
+import sys
 import codecs
 from sklearn.model_selection import train_test_split
 
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 import utils
 
 def write_new_split(corpus_name, test_size, filedir, filename,

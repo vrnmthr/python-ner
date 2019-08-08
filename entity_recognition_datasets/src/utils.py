@@ -8,12 +8,14 @@ http://nlpforhackers.io/named-entity-extraction/
 """
 import codecs
 import os
+import sys
 from collections import Counter
 try:
     import ConfigParser
 except:
     import configparser as ConfigParser
 
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 import sentence_utils
 
 
