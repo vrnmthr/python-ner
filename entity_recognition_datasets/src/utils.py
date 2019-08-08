@@ -10,12 +10,14 @@ import codecs
 import os
 import sys
 from collections import Counter
+
 try:
     import ConfigParser
 except:
     import configparser as ConfigParser
 
-sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+dirname = os.path.dirname(os.path.abspath(__file__))
+sys.path.append(dirname)
 import sentence_utils
 
 
@@ -28,30 +30,31 @@ def get_entities(corpus_name):
     of entity mentions in the corpus.
 
     """
-    r = read_conll(corpus_name); data = list(r)
-    data2 = [ [(w,iob) for ((w,p),iob) in d] for d in data]
+    r = read_conll(corpus_name);
+    data = list(r)
+    data2 = [[(w, iob) for ((w, p), iob) in d] for d in data]
     data3 = [i for u in data2 for i in u]
 
     tags = sentence_utils.get_tagset(data, with_prefix=True)
-    taglist = set([t[2:] for t in list(tags) if t !='O'])
+    taglist = set([t[2:] for t in list(tags) if t != 'O'])
     entities = {}
     for key in taglist:
         entities[key] = []
-    data3.append((u'O',u'O'))
+    data3.append((u'O', u'O'))
     ent = []
     entitytype = 'None'
-    for i,item in enumerate(data3[0:-1]):
+    for i, item in enumerate(data3[0:-1]):
         if item[1] != 'O':
             if item[1][0] == 'B':
                 ent = []
                 ent.append(item[0])
-            else: # == I
+            else:  # == I
                 if item[1][0] != 'I':
                     raise ValueError("Should be I")
                 ent.append(item[0])
 
-            if data3[i+1][1][2:] != item[1][2:] or data3[i+1][1][0] == 'B':
-                #print i, item
+            if data3[i + 1][1][2:] != item[1][2:] or data3[i + 1][1][0] == 'B':
+                # print i, item
                 entitytype = item[1][2:]
                 entities[entitytype].append(' '.join(ent))
     return entities
@@ -65,7 +68,8 @@ def list_corpora():
 
     """
     config = ConfigParser.RawConfigParser()
-    config.read('file_locations.cfg')
+    file_locations = os.path.join(dirname, 'file_locations.cfg')
+    config.read(file_locations)
     return config.sections()
 
 
@@ -83,16 +87,19 @@ def get_corpus_location(corpus_name):
 
     """
     config = ConfigParser.RawConfigParser()
-    config.read('file_locations.cfg')
+    file_locations = os.path.join(dirname, 'file_locations.cfg')
+    config.read(file_locations)
     xx = config.get(corpus_name, 'filename_end')
     xx = xx.split("\n")
     xx = tuple(xx)
-    if len(xx)==1:
+    if len(xx) == 1:
         xx = xx[0]
 
     filename_end = xx
     data_dir = config.get(corpus_name, 'data_dir')
+    data_dir = os.path.join(os.path.dirname(dirname), *os.path.normpath(data_dir).split(os.sep)[1:])
     docs_dir = config.get(corpus_name, 'docs_dir')
+    docs_dir = os.path.join(os.path.dirname(dirname), *os.path.normpath(docs_dir).split(os.sep)[1:])
     return filename_end, data_dir, docs_dir
 
 
@@ -111,20 +118,20 @@ def get_file_settings(corpus_name):
     config_file = os.path.join(docs_dir, 'corpusconfig.cfg')
     config = ConfigParser.RawConfigParser()
     config.read(config_file)
-    IOB = config.get('IOB-format','IOB')
-    sep = config.get('file-settings','sep')
-    sep = sep.strip("'") # NOTE case of a single space; in case sep is ' '
-    if sep=='tab':
+    IOB = config.get('IOB-format', 'IOB')
+    sep = config.get('file-settings', 'sep')
+    sep = sep.strip("'")  # NOTE case of a single space; in case sep is ' '
+    if sep == 'tab':
         sep = '\t'
-    iob_pos = config.get('file-settings','iob_pos')
+    iob_pos = config.get('file-settings', 'iob_pos')
     iob_pos = int(iob_pos)
-    word_pos = config.get('file-settings','word_pos')
+    word_pos = config.get('file-settings', 'word_pos')
     word_pos = int(word_pos)
-    pos_pos = config.get('file-settings','pos_pos')
+    pos_pos = config.get('file-settings', 'pos_pos')
     if pos_pos == 'none':
         pos_pos = word_pos
     pos_pos = int(pos_pos)
-    return word_pos, pos_pos, iob_pos, filename_end, sep, IOB #, domain
+    return word_pos, pos_pos, iob_pos, filename_end, sep, IOB  # , domain
 
 
 def iob1_to_iob2(annotated_sentence):
@@ -150,7 +157,7 @@ def iob1_to_iob2(annotated_sentence):
             if idx == 0:
                 ner = "B-" + ner[2:]
             elif ner[0:2] == 'B-':
-                ner = 'B-'+ner[2:]
+                ner = 'B-' + ner[2:]
             elif annotated_sentence[idx - 1][2][2:] == ner[2:]:
                 ner = "I-" + ner[2:]
             else:
@@ -230,17 +237,17 @@ def read_conll(corpus_name):
                             standard_form_tokens = []
 
                             for idx, annotated_token in enumerate(annotated_tokens):
-                                if sep=='multispace':
-                                    annotations = annotated_token.split()   # Split annotations
+                                if sep == 'multispace':
+                                    annotations = annotated_token.split()  # Split annotations
                                 else:
-                                    annotations = annotated_token.split(sep)   # Split annotations
+                                    annotations = annotated_token.split(sep)  # Split annotations
                                 try:
                                     word, tag, ner = annotations[word_pos], annotations[pos_pos], annotations[iob_pos]
                                 except:
                                     print(annotations)
-                                    #raise ValueError("??")
-                                if IOB =='IO':
-                                # Transform to IOB format if it is not already.
+                                    # raise ValueError("??")
+                                if IOB == 'IO':
+                                    # Transform to IOB format if it is not already.
                                     if ner != 'O':
                                         ner = ner.split('-')[1]
                                     if tag in ('LQU', 'RQU'):
@@ -249,7 +256,7 @@ def read_conll(corpus_name):
                                     standard_form_tokens.append((word, tag, ner))
                                     conll_tokens = to_conll_iob(standard_form_tokens)
                                 elif IOB == 'IOB1':
-                                    standard_form_tokens.append( (word,tag, ner))
+                                    standard_form_tokens.append((word, tag, ner))
                                     conll_tokens = iob1_to_iob2(standard_form_tokens)
                                 elif IOB == 'none':
                                     standard_form_tokens.append((word, tag, ner))
@@ -257,7 +264,7 @@ def read_conll(corpus_name):
                                 elif IOB == 'IOB2':
                                     # This is for the Seminars_and_Job_postings
                                     # data:
-                                    if ner=='0':
+                                    if ner == '0':
                                         ner = 'O'
                                     standard_form_tokens.append((word, tag, ner))
                                     conll_tokens = standard_form_tokens
@@ -283,10 +290,10 @@ def attach_domain(corpus, domt):
         Either 'src' or 'tgt'.
 
     """
-    if domt not in {'src','tgt'}: # Domain type - source or target
+    if domt not in {'src', 'tgt'}:  # Domain type - source or target
         raise ValueError("domt must be 'src' or 'tgt'.")
 
-    data_with_domain = [[((w,t,domt),iob) for ((w,t),iob) in d] for d in corpus]
+    data_with_domain = [[((w, t, domt), iob) for ((w, t), iob) in d] for d in corpus]
     return data_with_domain
 
 
@@ -321,10 +328,10 @@ def get_NER_tagcounts(corpus_name):
                             standard_form_tokens = []
 
                             for idx, annotated_token in enumerate(annotated_tokens):
-                                if sep=='multispace':
-                                    annotations = annotated_token.split()   # Split annotations
+                                if sep == 'multispace':
+                                    annotations = annotated_token.split()  # Split annotations
                                 else:
-                                    annotations = annotated_token.split(sep)   # Split annotations
+                                    annotations = annotated_token.split(sep)  # Split annotations
 
                                 word, tag, ner = annotations[word_pos], annotations[pos_pos], annotations[iob_pos]
                                 ner_tags[ner] += 1
@@ -358,10 +365,10 @@ def read_NER_output(filename):
             standard_form_tokens = []
 
             for idx, annotated_token in enumerate(annotated_tokens):
-                if sep=='multispace':
-                    annotations = annotated_token.split()   # Split annotations
+                if sep == 'multispace':
+                    annotations = annotated_token.split()  # Split annotations
                 else:
-                    annotations = annotated_token.split(sep)   # Split annotations
+                    annotations = annotated_token.split(sep)  # Split annotations
 
                 try:
                     word, ner = annotations[word_pos], annotations[iob_pos]
@@ -371,7 +378,8 @@ def read_NER_output(filename):
                 standard_form_tokens.append((word, ner))
                 conll_tokens = standard_form_tokens
 
-            yield [((w,w), iob) for w, iob in conll_tokens]
+            yield [((w, w), iob) for w, iob in conll_tokens]
+
 
 def _getlist(config, section, option, ints=False):
     """ Get a list of config values from the appropriate section of the
@@ -385,11 +393,10 @@ def _getlist(config, section, option, ints=False):
             vals = [int(i) for i in vals]
     return vals
 
-
 # This function is probably not a good idea; it assumes that the entity
 # descriptions in the corpusconfig.cfg file are exactly the same as the ones
 # in the corpus.
-#def get_entity_types(corpus_name):
+# def get_entity_types(corpus_name):
 #    """ Returns the entity types for a given corpus
 #
 #    """
@@ -399,5 +406,3 @@ def _getlist(config, section, option, ints=False):
 #    config.read(config_file)
 #    entity_types = config.get('entities','entities').split('\n')
 #    return entity_types
-
-
