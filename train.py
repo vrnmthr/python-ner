@@ -10,7 +10,7 @@ from tqdm import tqdm
 
 from model import BiLSTM
 
-EPOCHS = 10
+EPOCHS = 5
 LOSS_FUNC = nn.CrossEntropyLoss()
 
 
@@ -97,14 +97,18 @@ def graph_losses(losses):
 
 
 def evaluate():
-    # evaluate on the same data
+    # evaluate on test data
     with torch.no_grad():
-        for sentence in data:
-            tags = list(map(lambda word: get_label(word[1]), sentence))
-            words = list(map(lambda word: word[0][0], sentence))
-            predictions = model.evaluate(words)
-            print("real vals: {}".format(tags))
-            print("prediction: {}".format(predictions))
+        confusion = np.zeros((2, 2))
+        for sentence in tqdm(test_data, desc="train-set"):
+            words, tags = get_words_and_tags(sentence)
+            pred = model.evaluate(words)
+            assert len(pred) == len(tags)
+            for i in range(len(pred)):
+                confusion[pred[i]][tags[i]] += 1
+
+        confusion /= np.sum(confusion)
+        return confusion
 
 
 if __name__ == '__main__':
@@ -135,4 +139,6 @@ if __name__ == '__main__':
     print("graphing")
     graph_losses(losses)
 
-    # evaluate()
+    confusion = evaluate()
+    print(confusion)
+    print("accuracy: {}".format(np.sum(np.diagonal(confusion))))
