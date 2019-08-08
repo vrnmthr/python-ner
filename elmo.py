@@ -8,11 +8,9 @@ from allennlp.modules.elmo import Elmo as allen_elmo
 from allennlp.modules.elmo import batch_to_ids
 from torch import nn
 
-from utils import read_conll
-
 
 class Elmo(nn.Module):
-    def __init__(self, device='cpu'):
+    def __init__(self, device):
         """ Load the ELMo model. The first time you run this, it will download a pretrained model. """
         super(Elmo, self).__init__()
         options = "https://s3-us-west-2.amazonaws.com/allennlp/models/elmo/2x4096_512_2048cnn_2xhighway/elmo_2x4096_512_2048cnn_2xhighway_options.json"
@@ -20,7 +18,7 @@ class Elmo(nn.Module):
 
         # initialize instance of Elmo model
         self.elmo = allen_elmo(options, weights, 2, dropout=0)
-        self._dev = torch.device(device)
+        self._dev = device
         self.to(self._dev)
 
     def forward(self, batch):
@@ -50,13 +48,3 @@ def get_elmo_vectors(sentences):
     embeddings = embeddings.detach().numpy()
     np.save("elmo_test.npy", embeddings)
     print("finished")
-
-
-if __name__ == '__main__':
-    TRAIN = list(read_conll("WNUT17-train"))
-    DEV = list(read_conll("WNUT17-dev"))
-    TEST = list(read_conll("WNUT17-test"))
-
-    # TRAIN = TRAIN[:10]
-    tokens = [[w[0][0] for w in t] for t in TEST]
-    get_elmo_vectors(tokens)

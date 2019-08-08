@@ -5,14 +5,14 @@ from elmo import Elmo
 
 
 class BiLSTM(nn.Module):
-    def __init__(self, hidden_dim):
+    def __init__(self, hidden_dim, device):
         super(BiLSTM, self).__init__()
         self.embedding_dim = 1024
         self.hidden_dim = hidden_dim
         # self.tag_to_ix = tag_to_ix
         # self.tagset_size = len(tag_to_ix)
 
-        self.elmo = Elmo()
+        self.elmo = Elmo(device)
         self.lstm = nn.GRU(self.embedding_dim, hidden_dim // 2, num_layers=1, bidirectional=True, batch_first=True)
         self.linear = nn.Sequential(
             nn.Linear(hidden_dim, hidden_dim // 2),
@@ -29,10 +29,12 @@ class BiLSTM(nn.Module):
         # self.transitions.data[tag_to_ix[START_TAG], :] = -10000
         # self.transitions.data[:, tag_to_ix[STOP_TAG]] = -10000
 
+        self._dev = device
         self.hidden = self.init_hidden()
+        self.to(self._dev)
 
     def init_hidden(self):
-        return torch.randn(2, 1, self.hidden_dim // 2)
+        return torch.randn(2, 1, self.hidden_dim // 2).to(self._dev)
 
     def forward(self, sentence):
         """
@@ -45,8 +47,16 @@ class BiLSTM(nn.Module):
         # lstm_out = (1, seq_len, hidden_size * 2)
         lstm_out, hidden_out = self.lstm(embeds, self.hidden)
         predictions = self.linear(lstm_out)
-        # squeeze the result to get rid of the batch
+        # squeeze the result to get rid of the batch for (seq_len, 2)
         return predictions.squeeze()
+
+    def evaluate(self, sentence):
+        """
+        Evaluate a sentence as a list of words, outputting list as a numpy array
+        """
+        out = self.forward(sentence)
+        out = torch.argmax(out, dim=1)
+        return out.detach().numpy()
 
     # def _get_lstm_features(self, sentence):
     #     self.hidden = self.init_hidden()
