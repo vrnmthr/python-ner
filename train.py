@@ -11,7 +11,7 @@ from tqdm import tqdm
 from entity_recognition_datasets.src import utils
 from model import BiLSTM
 
-EPOCHS = 5
+EPOCHS = 4
 LOSS_FUNC = nn.CrossEntropyLoss()
 
 
@@ -50,7 +50,7 @@ def train_single(sentence, optimizer, backprop):
             optimizer.step()
         loss = loss.item()
     except Exception as e:
-        print("e")
+        print(e)
         print("words: {}".format(words))
         print("tags: {}".format(tags))
         print("continuing...")
@@ -72,32 +72,32 @@ def train():
     dev_losses = []
     for epoch in range(EPOCHS):
         print("EPOCH {}/{}".format(epoch + 1, EPOCHS))
-        start = time.time()
 
         # run train epoch
+        start = time.time()
         train_loss = 0
         for sentence in tqdm(train_data, desc="train-set"):
             loss = train_single(sentence, optimizer, backprop=True)
             train_loss += loss
         train_loss /= len(train_data)
         train_losses.append(train_loss)
+        duration = time.time() - start
+        print("train set completed in {:.3f}s, {:.3f}s per iteration".format(duration, duration / len(train_data)))
 
         # run a dev epoch
+        start = time.time()
         dev_loss = 0
         with torch.no_grad():
             for sentence in tqdm(dev_data, desc="dev-set"):
                 loss = train_single(sentence, optimizer, backprop=False)
-                train_loss += loss
+                dev_loss += loss
         dev_loss /= len(dev_data)
         dev_losses.append(dev_loss)
+        duration = time.time() - start
+        print("dev set completed in {:.3f}s, {:.3f}s per iteration".format(duration, duration / len(dev_data)))
 
         print("train loss = {}".format(train_loss))
         print("dev loss = {}".format(dev_loss))
-        duration = time.time() - start
-        print("epoch completed in {:.3f}s, {:.3f}s per iteration".format(
-            duration,
-            duration / (len(train_data) + len(dev_data))
-        ))
 
     losses = {
         "train": train_losses,
@@ -120,11 +120,17 @@ def evaluate():
     with torch.no_grad():
         confusion = np.zeros((2, 2))
         for sentence in tqdm(test_data, desc="train-set"):
-            words, tags = get_words_and_tags(sentence)
-            pred = model.evaluate(words)
-            assert len(pred) == len(tags)
-            for i in range(len(pred)):
-                confusion[pred[i]][tags[i]] += 1
+            try:
+                words, tags = get_words_and_tags(sentence)
+                pred = model.evaluate(words)
+                assert len(pred) == len(tags)
+                for i in range(len(pred)):
+                    confusion[pred[i]][tags[i]] += 1
+            except Exception as e:
+                print(e)
+                print("words: {}".format(words))
+                print("tags: {}".format(tags))
+                print("continuing...")
 
         confusion /= np.sum(confusion)
         return confusion

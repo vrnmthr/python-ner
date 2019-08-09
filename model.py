@@ -42,13 +42,14 @@ class BiLSTM(nn.Module):
         :return: a list of words
         """
         self.hidden = self.init_hidden()
-        # we unsqueeze because elmo only takes batches
+        # embeds = [1, sentence_len, 1024]
         embeds = self.elmo([sentence])
         # lstm_out = (1, seq_len, hidden_size * 2)
         lstm_out, hidden_out = self.lstm(embeds, self.hidden)
         predictions = self.linear(lstm_out)
         # squeeze the result to get rid of the batch for (seq_len, 2)
-        return predictions.squeeze()
+        predictions = predictions.squeeze(0)
+        return predictions
 
     def evaluate(self, sentence):
         """
