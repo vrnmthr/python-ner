@@ -31,6 +31,33 @@ def get_words_and_tags(sentence):
     return words, tags
 
 
+def train_single(sentence, optimizer, backprop):
+    """
+    Runs a single sentence through the model and returns the loss. If backprop is True, then backprops.
+    :return:
+    """
+    try:
+        # prepare tags and words
+        words, tags = get_words_and_tags(sentence)
+        tags = torch.LongTensor(tags).to(device)
+        # calculate predictions
+        model.zero_grad()
+        out = model(words)
+        # backprop
+        loss = LOSS_FUNC(out, tags)
+        if backprop:
+            loss.backward()
+            optimizer.step()
+        loss = loss.item()
+    except Exception as e:
+        print("e")
+        print("words: {}".format(words))
+        print("tags: {}".format(tags))
+        print("continuing...")
+        loss = 0
+    return loss
+
+
 def train():
     """
     :return: train_loss, dev_loss
@@ -46,21 +73,12 @@ def train():
     for epoch in range(EPOCHS):
         print("EPOCH {}/{}".format(epoch + 1, EPOCHS))
         start = time.time()
-        # run a training epoch
+
+        # run train epoch
         train_loss = 0
         for sentence in tqdm(train_data, desc="train-set"):
-            # prepare tags and words
-            words, tags = get_words_and_tags(sentence)
-            tags = torch.LongTensor(tags).to(device)
-            # calculate predictions
-            model.zero_grad()
-            out = model(words)
-            # backprop
-            loss = LOSS_FUNC(out, tags)
-            train_loss += loss.item()
-            loss.backward()
-            optimizer.step()
-
+            loss = train_single(sentence, optimizer, backprop=True)
+            train_loss += loss
         train_loss /= len(train_data)
         train_losses.append(train_loss)
 
@@ -68,13 +86,8 @@ def train():
         dev_loss = 0
         with torch.no_grad():
             for sentence in tqdm(dev_data, desc="dev-set"):
-                words, tags = get_words_and_tags(sentence)
-                tags = torch.LongTensor(tags).to(device)
-                # calculate predictions
-                model.zero_grad()
-                out = model(words)
-                loss = LOSS_FUNC(out, tags)
-                dev_loss += loss.item()
+                loss = train_single(sentence, optimizer, backprop=False)
+                train_loss += loss
         dev_loss /= len(dev_data)
         dev_losses.append(dev_loss)
 
