@@ -1,13 +1,14 @@
 import argparse
+import time
 
 import numpy as np
 import plotly
 import torch
-from entity_recognition_datasets.src import utils
 from torch import nn
 from torch import optim
 from tqdm import tqdm
 
+from entity_recognition_datasets.src import utils
 from model import BiLSTM
 
 EPOCHS = 5
@@ -44,7 +45,7 @@ def train():
     dev_losses = []
     for epoch in range(EPOCHS):
         print("EPOCH {}/{}".format(epoch + 1, EPOCHS))
-
+        start = time.time()
         # run a training epoch
         train_loss = 0
         for sentence in tqdm(train_data, desc="train-set"):
@@ -79,11 +80,16 @@ def train():
 
         print("train loss = {}".format(train_loss))
         print("dev loss = {}".format(dev_loss))
+        duration = time.time() - start
+        print("epoch completed in {:.3f}s, {:.3f}s per iteration".format(
+            duration,
+            duration / (len(train_data) + len(dev_data))
+        ))
 
-        losses = {
-            "train": train_losses,
-            "dev": dev_losses
-        }
+    losses = {
+        "train": train_losses,
+        "dev": dev_losses
+    }
 
     return losses
 
@@ -125,11 +131,11 @@ if __name__ == '__main__':
     print("Using device {}".format(device))
 
     print("loading datasets...")
-    train_data = list(utils.read_conll('WNUT17-train'))[:10]
+    train_data = list(utils.read_conll('WNUT17-train'))
     print("loaded train data")
-    dev_data = list(utils.read_conll("WNUT17-dev"))[:10]
+    dev_data = list(utils.read_conll("WNUT17-dev"))
     print("loaded dev data")
-    test_data = list(utils.read_conll("WNUT17-test"))[:2]
+    test_data = list(utils.read_conll("WNUT17-test"))
     print("loaded test data")
 
     model = BiLSTM(32, device)
