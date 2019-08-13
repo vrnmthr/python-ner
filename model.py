@@ -9,11 +9,13 @@ class BiLSTM(nn.Module):
         super(BiLSTM, self).__init__()
         self.embedding_dim = 1024
         self.hidden_dim = hidden_dim
+        self.num_layers = 1
         # self.tag_to_ix = tag_to_ix
         # self.tagset_size = len(tag_to_ix)
 
         self.elmo = Elmo(device)
-        self.lstm = nn.GRU(self.embedding_dim, hidden_dim // 2, num_layers=1, bidirectional=True, batch_first=True)
+        self.lstm = nn.GRU(self.embedding_dim, hidden_dim // 2, num_layers=self.num_layers, bidirectional=True,
+                           batch_first=True)
         self.linear = nn.Sequential(
             nn.Linear(hidden_dim, hidden_dim // 2),
             nn.Linear(hidden_dim // 2, 2),
@@ -34,7 +36,7 @@ class BiLSTM(nn.Module):
         self.to(self._dev)
 
     def init_hidden(self):
-        return torch.randn(2, 1, self.hidden_dim // 2).to(self._dev)
+        return torch.randn(self.num_layers * 2, 1, self.hidden_dim // 2).to(self._dev)
 
     def forward(self, sentence):
         """

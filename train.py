@@ -8,7 +8,7 @@ from torch import nn
 from torch import optim
 from tqdm import tqdm
 
-from entity_recognition_datasets.src import utils
+from data import DataSource
 from model import BiLSTM
 
 EPOCHS = 4
@@ -73,10 +73,13 @@ def train():
     for epoch in range(EPOCHS):
         print("EPOCH {}/{}".format(epoch + 1, EPOCHS))
 
-        # run train epoch
+        # run train epoch, with randomized training order
         start = time.time()
         train_loss = 0
-        for sentence in tqdm(train_data, desc="train-set"):
+        ixs = np.arange(len(train_data))
+        np.random.shuffle(ixs)
+        for ix in tqdm(ixs, desc="train-set"):
+            sentence = train_data[ix]
             loss = train_single(sentence, optimizer, backprop=True)
             train_loss += loss
         train_loss /= len(train_data)
@@ -150,14 +153,14 @@ if __name__ == '__main__':
     print("Using device {}".format(device))
 
     print("loading datasets...")
-    train_data = list(utils.read_conll('WNUT17-train'))
-    print("loaded train data")
-    dev_data = list(utils.read_conll("WNUT17-dev"))
-    print("loaded dev data")
-    test_data = list(utils.read_conll("WNUT17-test"))
-    print("loaded test data")
+    train_data = DataSource("train")
+    print("loaded {} train data".format(len(train_data)))
+    dev_data = DataSource("dev")
+    print("loaded {} dev data".format(len(dev_data)))
+    test_data = DataSource("test")
+    print("loaded {} test data".format(len(test_data)))
 
-    model = BiLSTM(32, device)
+    model = BiLSTM(64, device)
     print("allocated model")
 
     losses = train()
