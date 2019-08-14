@@ -106,3 +106,4 @@ venv.bak/
 # IDEs
 .idea/
 .vscode/
+elmo/

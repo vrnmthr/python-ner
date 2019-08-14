@@ -1,29 +1,50 @@
-from entity_recognition_datasets.src import stratified_split
+import joblib
+from fastai.text import *
+
 from entity_recognition_datasets.src import utils
 
 
-class DataSource:
+class NERDataset(Dataset):
 
-    def __init__(self, split):
+    def __init__(self, paths):
         """
-        :param split: should either be "dev", "test", or "train"
+        :param paths: a list of paths to load joblib objects out of elmo/
         """
-        self.data = []
+        # self.raw_data = []
+        self.lens = []
+        self.embs = []
+        self.tags = []
 
-        # add WNUT17
-        wnut17_path = "WNUT17-{}".format(split)
-        self.data.extend(utils.read_conll(wnut17_path))
+        for p in paths:
+            data = joblib.load("elmo/{}.joblib".format(p))
+            self.lens.extend(data['lens'])
+            self.embs.extend(data['embeddings'])
+            self.tags.extend(data['tags'])
 
-        # no dev set for BTC
-        if split != "dev":
-            btc_path = "BTC-{}".format(split)
-            self.data.extend(utils.read_conll(btc_path))
+        # # add WNUT17
+        # wnut17_path = "WNUT17-{}".format(split)
+        # self.raw_data.extend(utils.read_conll(wnut17_path))
+        #
+        # # add BTC
+        # if split != "dev":
+        #     btc_path = "BTC-{}".format(split)
+        #     self.raw_data.extend(utils.read_conll(btc_path))
+        #
+        # # preprocess all the data
+        # for sentence in self.raw_data:
+        #     words, tags = self.get_words_and_tags(sentence)
+        #     self.data.append((words, tags))
 
     def __len__(self):
-        return len(self.data)
+        return len(self.lens)
 
     def __getitem__(self, key):
-        return self.data[key]
+        """
+        Returns a single sentence
+        :param key:
+        :return:
+        """
+        return (self.lens[key], self.embs[key]), self.tags[key]
 
     def print_dist(self):
         """
@@ -46,10 +67,9 @@ class DataSource:
         print(total)
         return total
 
-
-def create_btc_split():
-    """
-    """
-    stratified_split.write_new_split("BTC", 1000,
-                                     filedir="entity_recognition_datasets/data/BTC/CONLL-format/data_generated",
-                                     filename="btc")
+# def create_btc_split():
+#     """
+#     """
+#     stratified_split.write_new_split("BTC", 1000,
+#                                      filedir="entity_recognition_datasets/data/BTC/CONLL-format/data_generated",
+#                                      filename="btc")
