@@ -72,16 +72,19 @@ def get_elmo_vectors(sentences, labels, batch_size=512):
         "tags": labels,
     }
 
-    joblib.dump(output, "elmo/vecs.joblib")
-    print("saved vectors")
+    return output
 
 
 if __name__ == '__main__':
-    data = list(data_utils.read_conll("WNUT17"))[:10]
-    words = []
-    tags = []
-    for sentence in data:
-        w, t = utils.get_words_and_tags(sentence)
-        words.append(w)
-        tags.append(t)
-    get_elmo_vectors(words, tags)
+    sets = ["WNUT17-train", "WNUT17-dev", "WNUT17-test"]
+    for s in sets:
+        data = data_utils.read_conll(s)
+        words = []
+        tags = []
+        for sentence in data:
+            w, t = utils.get_words_and_tags(sentence)
+            words.append(w)
+            tags.append(t)
+        output = get_elmo_vectors(words, tags)
+        joblib.dump(output, "elmo/{}.joblib".format(s))
+        print("saved {} to memory".format(s))

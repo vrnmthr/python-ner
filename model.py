@@ -1,24 +1,24 @@
-import torch
-from torch import nn
-
-from elmo import Elmo
+from fastai.text import *
 
 
 class BiLSTM(nn.Module):
-    def __init__(self, hidden_dim, device):
+    def __init__(self, batch_size, hidden_dim, device):
         super(BiLSTM, self).__init__()
         self.embedding_dim = 1024
         self.hidden_dim = hidden_dim
         self.num_layers = 1
+        self.batch_size = batch_size
+        self.tag_size = 2
         # self.tag_to_ix = tag_to_ix
         # self.tagset_size = len(tag_to_ix)
 
-        self.elmo = Elmo(device)
+        # self.elmo = Elmo(device)
         self.lstm = nn.GRU(self.embedding_dim, hidden_dim // 2, num_layers=self.num_layers, bidirectional=True,
                            batch_first=True)
+
         self.linear = nn.Sequential(
             nn.Linear(hidden_dim, hidden_dim // 2),
-            nn.Linear(hidden_dim // 2, 2),
+            nn.Linear(hidden_dim // 2, self.tag_size),
         )
 
         # # Matrix of transition parameters.  Entry i,j is the score of
@@ -32,26 +32,58 @@ class BiLSTM(nn.Module):
         # self.transitions.data[:, tag_to_ix[STOP_TAG]] = -10000
 
         self._dev = device
-        self.hidden = self.init_hidden()
+        self.hidden = self.init_hidden(self.batch_size)
         self.to(self._dev)
 
-    def init_hidden(self):
-        return torch.randn(self.num_layers * 2, 1, self.hidden_dim // 2).to(self._dev)
+    def init_hidden(self, bs):
+        return torch.randn(self.num_layers * 2, bs, self.hidden_dim // 2).to(self._dev)
 
-    def forward(self, sentence):
+    def forward(self, lens, embs):
         """
-        :param sentence: single list of words
-        :return: a list of words
+        :param embs: (batch_size, maxlen, embedding_dim)
+        :param lens: original sequence lengths of each input (batch_size)
+        You should return a tensor of (batch_size x 2) logits for each class per batch element.
         """
-        self.hidden = self.init_hidden()
-        # embeds = [1, sentence_len, 1024]
-        embeds = self.elmo([sentence])
-        # lstm_out = (1, seq_len, hidden_size * 2)
-        lstm_out, hidden_out = self.lstm(embeds, self.hidden)
-        predictions = self.linear(lstm_out)
-        # squeeze the result to get rid of the batch for (seq_len, 2)
-        predictions = predictions.squeeze(0)
-        return predictions
+        bs, maxlen, embedding_dim = embs.shape # hint: use this for reshaping RNN hidden state
+        assert embedding_dim == self.embedding_dim
+
+        # 1. Grab the embeddings:
+        # embeddings for the token sequence are (batch_size, len, embedding_dim)
+        # embeds = self.embedding_lookup(tokens)
+
+        # 2. Sort seq_lens and embeds in descending order of seq_lens. (check out torch.sort)
+        #    This is expected by torch.nn.utils.pack_padded_sequence.
+        sorted_seq_lens, perm_ix = torch.sort(lens, descending=True)
+        sorted_tokens = embs[perm_ix]
+
+        # 3. Obtain a PackedSequence object from pack_padded_sequence.
+        #    Be sure to pass batch_first=True as the first dimension of our input is the batch dim.
+        packed_seq = nn.utils.rnn.pack_padded_sequence(sorted_tokens, sorted_seq_lens, batch_first=True)
+
+        # 4. Apply the RNN over the sequence of packed embeddings to obtain a sentence encoding.
+        #    Reset the hidden state each time
+        self.hidden = self.init_hidden(bs)
+        # encoding is (batch_size, seq_len, hidden_sz)
+        encoding, _ = self.lstm(packed_seq, self.hidden)
+        # undo the packing operation
+        encoding, _ = nn.utils.rnn.pad_packed_sequence(encoding, batch_first=True)
+        out = self.linear(encoding)
+
+        # 6. Remember to unsort the output from step 5. If you sorted seq_lens and obtained a permutation
+        #    over its indices (perm_ix), then the sorted indices over perm_ix will "unsort".
+        #    For example:
+        #       _, unperm_ix = perm_ix.sort(0)
+        #       output = x[unperm_ix]
+        #       return output
+        _, unperm_ix = torch.sort(perm_ix)
+        out = out[unperm_ix]
+
+        # restore the original dimensions of the tensor
+        padding = maxlen - out.shape[1]
+        if padding != 0:
+            padding = torch.zeros(size=(bs, padding, self.tag_size))
+            out = torch.cat((out, padding), dim=1)
+        return out
 
     def evaluate(self, sentence):
         """
