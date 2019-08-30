@@ -4,7 +4,7 @@ from entity_recognition_datasets.src import utils
 
 class DataSource:
 
-    def __init__(self, split):
+    def __init__(self, split, n=None):
         """
         :param split: should either be "dev", "test", or "train"
         """
@@ -18,6 +18,10 @@ class DataSource:
         if split != "dev":
             btc_path = "BTC-{}".format(split)
             self.data.extend(utils.read_conll(btc_path))
+
+        # slice the data as appropriate
+        if n is not None:
+            self.data = self.data[:n]
 
     def __len__(self):
         return len(self.data)

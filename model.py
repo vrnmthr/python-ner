@@ -18,6 +18,7 @@ class BiLSTM(nn.Module):
                            batch_first=True)
         self.linear = nn.Sequential(
             nn.Linear(hidden_dim, hidden_dim // 2),
+            nn.Dropout(0.2),
             nn.Linear(hidden_dim // 2, 2),
         )
 

@@ -1,5 +1,7 @@
 import argparse
 import time
+import os
+
 
 import numpy as np
 import plotly
@@ -12,7 +14,7 @@ from data import DataSource
 from model import BiLSTM
 
 EPOCHS = 4
-LOSS_FUNC = nn.CrossEntropyLoss()
+LOSS_FUNC = nn.CrossEntropyLoss(weight=torch.FloatTensor([0.1, 0.9]))
 
 
 def get_label(x):
@@ -63,7 +65,7 @@ def train():
     :return: train_loss, dev_loss
     """
 
-    optimizer = optim.Adam(model.parameters(), lr=0.01, weight_decay=1e-4)
+    optimizer = optim.Adam(model.parameters(), lr=1e-4, weight_decay=1e-4)
 
     # Make sure prepare_sequence from earlier in the LSTM section is loaded
     print("training...")
@@ -101,6 +103,10 @@ def train():
 
         print("train loss = {}".format(train_loss))
         print("dev loss = {}".format(dev_loss))
+
+        ckpt = os.path.join("models", "elmo-linear-epoch{}.pth".format(epoch))
+        torch.save(model.state_dict(), ckpt)
+        print("Checkpoint saved to {}".format(ckpt))
 
     losses = {
         "train": train_losses,
@@ -142,6 +148,8 @@ def evaluate():
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument("--device", help="pass --device cuda to run on gpu (default 'cpu')", default="cpu")
+    parser.add_argument("--restore", help="path to restore model for testing", default="")
+
     args = parser.parse_args()
 
     device = torch.device('cpu')
@@ -153,19 +161,24 @@ if __name__ == '__main__':
     print("Using device {}".format(device))
 
     print("loading datasets...")
-    train_data = DataSource("train")
+    n = None
+    train_data = DataSource("train", n=n)
     print("loaded {} train data".format(len(train_data)))
-    dev_data = DataSource("dev")
+    dev_data = DataSource("dev", n=n)
     print("loaded {} dev data".format(len(dev_data)))
-    test_data = DataSource("test")
+    test_data = DataSource("test", n=n)
     print("loaded {} test data".format(len(test_data)))
 
-    model = BiLSTM(64, device)
+    model = BiLSTM(128, device)
     print("allocated model")
 
-    losses = train()
-    print("graphing")
-    graph_losses(losses)
+    if args.restore == "":
+        losses = train()
+        print("graphing")
+        graph_losses(losses)
+    else:
+        model.load_state_dict(torch.load(args.restore))
+        print("loaded weights from {}".format(args.restore))
 
     confusion = evaluate()
     print(confusion)
